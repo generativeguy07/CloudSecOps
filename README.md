@@ -211,4 +211,4 @@ pytest tests/test_full_pipeline.py -v
 ---
 
 ## 🛡️ License & Authors
-Developed by **Sharanaprabhu** for advanced Cloud Security Operations & DevSecOps Engineering. Licensed under the MIT License.
+Developed by **Sharanaprabhu** for advanced Cloud Security Operations & DevSecOps Engineering. 
