@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test template with public S3 bucket (intentional issue)'
+
+Resources:
+  PublicDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-public-data-bucket-12345
+      VersioningConfiguration:
+        Status: Suspended
+      # Missing PublicAccessBlockConfiguration - SECURITY ISSUE
+      Tags:
+        - Key: Name
+          Value: DataBucket
+        # Missing Owner tag - LOW severity issue

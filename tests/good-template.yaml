@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test template - compliant with security best practices'
+
+Resources:
+  SecureWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Secure web server security group"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          Description: "HTTP from ALB only"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          Description: "HTTPS from ALB only"
+      Tags:
+        - Key: Owner
+          Value: DevOps
+        - Key: Name
+          Value: WebServerSG
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "ALB security group"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/8  # Restricted to internal network
+          Description: "HTTP from internal network"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/8  # Restricted to internal network
+          Description: "HTTPS from internal network"
+      Tags:
+        - Key: Owner
+          Value: DevOps
+        - Key: Name
+          Value: ALBSG
+
+  SecureDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: secure-production-db
+      Engine: mysql
+      DBInstanceClass: db.t3.micro
+      MasterUsername: admin
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:db-password:SecretString:password}}'  # Secret from Secrets Manager
+      AllocatedStorage: 20
+      StorageEncrypted: true  # GOOD - Encrypted
+      KmsKeyId: arn:aws:kms:us-east-1:123456789:key/12345678-1234-1234-1234-123456789
+      BackupRetentionPeriod: 7  # GOOD - 7-day backups
+      PubliclyAccessible: false  # GOOD - Private database
+      EnableCloudwatchLogsExports:  # GOOD - Logging enabled
+        - error
+        - general
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      Tags:
+        - Key: Owner
+          Value: DBA
+        - Key: Environment
+          Value: Production
+        - Key: Name
+          Value: ProductionDB
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "RDS database security group"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref SecureWebSecurityGroup
+          Description: "MySQL from web servers only"
+      Tags:
+        - Key: Owner
+          Value: DBA
+        - Key: Name
+          Value: DBSG
+
+  SecureDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-secure-data-bucket-12345
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:  # GOOD - Encryption enabled
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:  # GOOD - Block public access
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LoggingConfiguration:  # GOOD - Access logging
+        DestinationBucketName: !Ref LoggingBucket
+        LogFilePrefix: data-bucket-logs/
+      Tags:
+        - Key: Owner
+          Value: DataTeam
+        - Key: Sensitivity
+          Value: Confidential
+        - Key: Name
+          Value: SecureDataBucket
+
+  LoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-logging-bucket-12345
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Owner
+          Value: Security
+        - Key: Name
+          Value: LoggingBucket

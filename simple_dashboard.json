@@ -1,0 +1,14 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 3,
+      "properties": {
+        "markdown": "# CloudSecOps Audit Platform\n\nStatus: Active\n\nComponents:\n- IaC Scanner Lambda\n- Runtime Auditor Lambda\n- Cost Analyzer Lambda\n- Risk Scorer Lambda\n- Auto-Remediate Lambda\n- Alerter Lambda\n\nData Source: DynamoDB SecurityFindings table"
+      }
+    }
+  ]
+}

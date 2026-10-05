@@ -1,0 +1,132 @@
+name: CloudSecOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test-and-lint:
+    name: Run Unit Tests & Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest boto3 PyYAML flask
+
+      - name: Lint with flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=venv,.dist
+          # Exit-zero treats all errors as warnings
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=130 --statistics --exclude=venv,.dist
+
+      - name: Validate CloudFormation Templates
+        run: |
+          python -c "
+          import os, yaml
+          template_dir = 'tests'
+          for f in os.listdir(template_dir):
+              if f.endswith(('.yaml', '.yml')):
+                  path = os.path.join(template_dir, f)
+                  with open(path) as stream:
+                      try:
+                          yaml.safe_load(stream)
+                          print(f'Valid YAML: {f}')
+                      except Exception as e:
+                          print(f'YAML error in {f}: {e}')
+          "
+
+      - name: Run Integration & Unit Tests
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
+
+  package-lambdas:
+    name: Package Lambda Functions
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Package Lambda Artifacts
+        run: |
+          mkdir -p dist/packages
+          
+          # Auditor
+          cd auditor_package && zip -r ../dist/packages/auditor.zip . && cd ..
+          
+          # Cost Analyzer
+          cd cost_analyzer_package && zip -r ../dist/packages/cost_analyzer.zip . && cd ..
+          
+          # Risk Scorer
+          cd risk_scorer_package && zip -r ../dist/packages/risk_scorer.zip . && cd ..
+          
+          # Alerter
+          cd alerter_package && zip -r ../dist/packages/alerter.zip . && cd ..
+          
+          # Auto-Remediate
+          cd auto_remediate_package && zip -r ../dist/packages/auto_remediate.zip . && cd ..
+          
+          # Report Generator
+          cd report_generator_package && zip -r ../dist/packages/report_generator.zip . && cd ..
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsecops-lambda-packages
+          path: dist/packages/*.zip
+
+  deploy:
+    name: Deploy Lambdas & CloudWatch Dashboard
+    needs: package-lambdas
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Lambda Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudsecops-lambda-packages
+          path: dist/packages
+
+      - name: Configure AWS Credentials
+        if: env.AWS_ACCESS_KEY_ID != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+
+      - name: Deploy CloudWatch Dashboard & Update Code
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          python -m pip install boto3
+          python -c "
+          import boto3
+          from cloudwatch_dashboard import deploy_cloudwatch_dashboard
+          res = deploy_cloudwatch_dashboard()
+          print('CloudWatch Deployment:', res)
+          "
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-south-1' }}

@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test template with open security group (intentional issue)'
+
+Resources:
+  OpenWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Web server security group with open SSH (INTENTIONAL BUG)"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0  # This is bad! SSH open to world
+          Description: "SSH from anywhere (SECURITY RISK)"
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "HTTP from anywhere"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: "HTTPS from anywhere"
+
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c55b159cbfafe1f0  # Amazon Linux 2
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - !Ref OpenWebSecurityGroup
+      Tags:
+        - Key: Name
+          Value: WebServer
+        # Missing Owner tag - LOW severity issue

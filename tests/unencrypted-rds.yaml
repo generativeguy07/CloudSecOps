@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test template with unencrypted RDS (intentional issue)'
+
+Resources:
+  UnsecureDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: production-db
+      Engine: mysql
+      DBInstanceClass: db.t3.micro
+      MasterUsername: admin
+      MasterUserPassword: MyPassword123!  # Also bad - hardcoded password
+      AllocatedStorage: 20
+      StorageEncrypted: false  # SECURITY ISSUE - Not encrypted
+      BackupRetentionPeriod: 0  # MEDIUM issue - No backups
+      PubliclyAccessible: true  # CRITICAL issue - Public access
+      Tags:
+        - Key: Name
+          Value: ProductionDB
+        # Missing Owner tag - LOW severity issue

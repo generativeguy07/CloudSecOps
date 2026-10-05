@@ -1,0 +1,27 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / Packaging
+.dist/
+dist/
+build/
+*.egg-info/
+*.zip
+
+# Local Generated Reports (Sensitive AWS Account metadata)
+reports/*.html
+!reports/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

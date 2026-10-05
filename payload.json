@@ -1,0 +1,12 @@
+{
+  "template_body": {
+    "Resources": {
+      "InsecureBucket": {
+        "Type": "AWS::S3::Bucket",
+        "Properties": {
+          "BucketName": "my-unencrypted-test-bucket"
+        }
+      }
+    }
+  }
+}

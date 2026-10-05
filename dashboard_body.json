@@ -1,0 +1,50 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 2,
+      "properties": {
+        "markdown": "# CloudSecOps Audit Platform Real-Time Status\nMonitoring active findings across EC2, RDS, S3, IAM, and IaC."
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 2,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["CloudSecOps", "CriticalFindings", { "color": "#d62728", "stat": "Maximum" }],
+          [".", "HighFindings", { "color": "#ff7f0e", "stat": "Maximum" }],
+          [".", "MediumFindings", { "color": "#bcbd22", "stat": "Maximum" }],
+          [".", "LowFindings", { "color": "#1f77b4", "stat": "Maximum" }]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "ap-south-1",
+        "title": "Security Findings Count by Severity",
+        "period": 300
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 2,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["CloudSecOps", "ResolvedFindings", { "color": "#2ca02c", "stat": "Sum" }]
+        ],
+        "view": "singleValue",
+        "region": "ap-south-1",
+        "title": "Auto-Remediated Issues (Total)",
+        "period": 86400
+      }
+    }
+  ]
+}

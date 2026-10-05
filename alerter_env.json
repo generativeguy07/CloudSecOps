@@ -1,0 +1,6 @@
+{
+  "Variables": {
+    "TABLE_NAME": "SecurityFindings",
+    "SNS_TOPIC_ARN": "arn:aws:sns:ap-south-1:848237287172:cloudsecops-alerts"
+  }
+}

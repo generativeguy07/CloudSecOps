@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudSecOps - Enterprise Security, Audit & Auto-Remediation Platform</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS & Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#080c14',
+                        surface: '#0f172a',
+                        surfacecard: '#1e293b',
+                        surfaceborder: '#334155',
+                        brand: '#6366f1',
+                        brandhover: '#4f46e5'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #080c14;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+        }
+        .glass-panel-glow {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.15);
+        }
+        .tab-btn.active {
+            color: #ffffff;
+            border-bottom: 2px solid #6366f1;
+            background: rgba(99, 102, 241, 0.1);
+        }
+        .severity-critical {
+            background: rgba(239, 68, 68, 0.12);
+            border-left: 4px solid #ef4444;
+        }
+        .severity-high {
+            background: rgba(249, 115, 22, 0.12);
+            border-left: 4px solid #f97316;
+        }
+        .severity-medium {
+            background: rgba(234, 179, 8, 0.12);
+            border-left: 4px solid #eab308;
+        }
+        .severity-low {
+            background: rgba(59, 130, 246, 0.12);
+            border-left: 4px solid #3b82f6;
+        }
+        .status-resolved-row {
+            background: rgba(16, 185, 129, 0.08);
+            border-left: 4px solid #10b981;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1120;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+    <!-- Top Navigation & Brand Header -->
+    <header class="glass-panel sticky top-0 z-40 border-b border-surfaceborder px-6 py-3.5">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/30">
+                    🛡️
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        CloudSecOps <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">v2.0 Enterprise</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">AWS Security Audit, Real-Time Observability & Safe Auto-Remediation</p>
+                </div>
+            </div>
+
+            <!-- AWS Account Connection & Sync Header Status Bar -->
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Status Badge -->
+                <div id="accountStatusBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border bg-slate-900 border-slate-700 text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span>
+                    <span id="accountStatusText">Checking AWS Account...</span>
+                </div>
+
+                <!-- Account ID Details Chip -->
+                <div id="accountDetailsChip" class="hidden items-center gap-2 text-xs font-mono bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-800 text-slate-300">
+                    <span class="text-slate-500">ID:</span>
+                    <span id="headerAccountId" class="font-bold text-white">---</span>
+                    <span class="text-slate-600">|</span>
+                    <span id="headerRegion" class="text-indigo-400 font-semibold">ap-south-1</span>
+                </div>
+
+                <!-- Sync Account Now Button -->
+                <button id="syncAccountBtn" onclick="runSyncPipeline()" class="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all shadow-md shadow-indigo-600/20 active:scale-95">
+                    <span id="syncIcon" class="text-sm">⚡</span>
+                    <span id="syncText">Sync Account</span>
+                </button>
+
+                <!-- Connect / Switch Account Button -->
+                <button onclick="openConnectModal()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-700 transition">
+                    <span>⚙️</span>
+                    <span id="connectBtnText">Connect Account</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Syncing Notification Banner (Dynamic) -->
+    <div id="syncProgressBanner" class="hidden bg-indigo-950/80 border-b border-indigo-500/40 px-6 py-2.5 text-xs text-indigo-200">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <svg class="animate-spin h-4 w-4 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span id="syncStepMessage">Scanning connected AWS account resources (EC2, S3, RDS, IAM, Security Groups)...</span>
+            </div>
+            <span class="text-slate-400 font-mono text-[11px]" id="syncTimer">Running scan...</span>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full">
+
+        <!-- Navigation Tabs Bar -->
+        <div class="flex border-b border-surfaceborder mb-6 gap-2 overflow-x-auto text-sm font-medium">
+            <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn active px-4 py-2.5 text-slate-300 hover:text-white transition flex items-center gap-2">
+                <span>🛡️</span> Overview & Findings
+            </button>
+            <button onclick="switchTab('cloudwatch')" id="tab-cloudwatch" class="tab-btn px-4 py-2.5 text-slate-400 hover:text-white transition flex items-center gap-2">
+                <span>☁️</span> CloudWatch Dashboard
+            </button>
+            <button onclick="switchTab('sns')" id="tab-sns" class="tab-btn px-4 py-2.5 text-slate-400 hover:text-white transition flex items-center gap-2">
+                <span>📧</span> SNS Alerting
+            </button>
+            <button onclick="switchTab('reports')" id="tab-reports" class="tab-btn px-4 py-2.5 text-slate-400 hover:text-white transition flex items-center gap-2">
+                <span>📄</span> Weekly Reports & S3
+            </button>
+            <button onclick="switchTab('remediation')" id="tab-remediation" class="tab-btn px-4 py-2.5 text-slate-400 hover:text-white transition flex items-center gap-2">
+                <span>🔧</span> Auto-Remediation (5 Fixes)
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 1: OVERVIEW & FINDINGS                -->
+        <!-- ========================================== -->
+        <div id="panel-overview" class="tab-panel space-y-6">
+
+            <!-- Summary KPI Metric Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                
+                <!-- Compliance Health Score Card -->
+                <div class="glass-panel p-4 rounded-xl border border-surfaceborder flex flex-col justify-between hover:border-indigo-500/50 transition">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Compliance</span>
+                        <span id="gradeBadge" class="text-xs px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Grade A</span>
+                    </div>
+                    <div class="mt-2">
+                        <div id="complianceScoreVal" class="text-2xl font-extrabold text-white">0%</div>
+                        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+                            <div id="complianceScoreBar" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Findings -->
+                <div class="glass-panel p-4 rounded-xl border border-surfaceborder hover:border-slate-600 transition">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Findings</span>
+                    <p id="totalFindings" class="text-2xl font-extrabold text-white mt-2">0</p>
+                    <span id="openFindingsSub" class="text-[11px] text-slate-500">0 active flaws</span>
+                </div>
+
+                <!-- Critical Flaws -->
+                <div class="glass-panel p-4 rounded-xl border border-red-500/20 bg-red-950/10 hover:border-red-500/40 transition">
+                    <span class="text-xs font-semibold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Critical
+                    </span>
+                    <p id="criticalFindings" class="text-2xl font-extrabold text-red-500 mt-2">0</p>
+                    <span class="text-[11px] text-red-400/70">Urgent priority</span>
+                </div>
+
+                <!-- High Flaws -->
+                <div class="glass-panel p-4 rounded-xl border border-orange-500/20 bg-orange-950/10 hover:border-orange-500/40 transition">
+                    <span class="text-xs font-semibold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span> High
+                    </span>
+                    <p id="highFindings" class="text-2xl font-extrabold text-orange-400 mt-2">0</p>
+                    <span class="text-[11px] text-orange-400/70">Elevated risk</span>
+                </div>
+
+                <!-- Auto-Remediated / Resolved -->
+                <div class="glass-panel p-4 rounded-xl border border-emerald-500/20 bg-emerald-950/10 hover:border-emerald-500/40 transition">
+                    <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Remediated
+                    </span>
+                    <p id="resolvedFindings" class="text-2xl font-extrabold text-emerald-400 mt-2">0</p>
+                    <span class="text-[11px] text-emerald-400/70">Safe auto-fixes applied</span>
+                </div>
+
+                <!-- Potential Cost Savings -->
+                <div class="glass-panel p-4 rounded-xl border border-purple-500/20 bg-purple-950/10 hover:border-purple-500/40 transition">
+                    <span class="text-xs font-semibold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>💰</span> Est. Savings
+                    </span>
+                    <p id="costSavingsVal" class="text-2xl font-extrabold text-purple-400 mt-2">$0.00</p>
+                    <span class="text-[11px] text-purple-300/70">Per month</span>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Findings by Severity Bar Chart -->
+                <div class="glass-panel p-5 rounded-xl border border-surfaceborder lg:col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <span>📊</span> Security Flaws by Severity Level
+                        </h3>
+                        <span class="text-xs text-slate-400 font-mono">Real-time scan data</span>
+                    </div>
+                    <div class="h-60 relative">
+                        <canvas id="severityChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Open vs Remediated Doughnut -->
+                <div class="glass-panel p-5 rounded-xl border border-surfaceborder">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                            <span>🎯</span> Posture Status
+                        </h3>
+                        <span class="text-xs text-slate-400">Resolution</span>
+                    </div>
+                    <div class="h-60 relative flex items-center justify-center">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Findings Table Section -->
+            <div class="glass-panel rounded-xl border border-surfaceborder overflow-hidden">
+                <!-- Table Controls Header -->
+                <div class="p-4 border-b border-surfaceborder flex flex-wrap items-center justify-between gap-4 bg-slate-900/60">
+                    <div class="flex items-center gap-6">
+                        <button id="openTabBtn" onclick="switchFindingsTab('OPEN')" class="text-base font-semibold text-white border-b-2 border-indigo-500 pb-1 outline-none">Detected Security Flaws</button>
+                        <button id="resolvedTabBtn" onclick="switchFindingsTab('RESOLVED')" class="text-base font-semibold text-slate-400 hover:text-white border-b-2 border-transparent pb-1 outline-none">Fixes (Logs)</button>
+                        <span id="findingsCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono">0 issues</span>
+                    </div>
+
+                    <!-- Filter Controls -->
+                    <div class="flex flex-wrap items-center gap-3 text-xs">
+                        <!-- Search Box -->
+                        <div class="relative">
+                            <input type="text" id="searchInput" oninput="filterFindings()" placeholder="Search resource, issue..." class="bg-slate-950 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs w-48 focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <!-- Severity Filter -->
+                        <select id="severityFilter" onchange="filterFindings()" class="bg-slate-950 border border-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
+                            <option value="ALL">All Severities</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+
+                        <!-- Status filter controlled by Tabs -->
+
+                        <!-- Refresh -->
+                        <button onclick="refreshData()" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition" title="Refresh">
+                            🔄
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left text-xs">
+                        <thead class="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-surfaceborder">
+                            <tr>
+                                <th class="px-4 py-3">Severity</th>
+                                <th class="px-4 py-3">Resource ID</th>
+                                <th class="px-4 py-3">AWS Service</th>
+                                <th class="px-4 py-3">Identified Vulnerability / Flaw</th>
+                                <th class="px-4 py-3">Risk Score</th>
+                                <th class="px-4 py-3">Cost Impact</th>
+                                <th class="px-4 py-3">Status</th>
+                                <th class="px-4 py-3 text-right">Quick Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="findingsTable" class="divide-y divide-slate-800/60 font-sans">
+                            <tr>
+                                <td colspan="8" class="text-center py-12 text-slate-500">
+                                    <div class="animate-pulse">Loading security findings from AWS account...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: CLOUDWATCH DASHBOARD HUB           -->
+        <!-- ========================================== -->
+        <div id="panel-cloudwatch" class="tab-panel hidden space-y-6">
+            <div class="glass-panel p-6 rounded-xl border border-surfaceborder">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>☁️</span> Amazon CloudWatch Security Hub
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Real-time CloudWatch metrics & monitoring widgets deployed directly into your AWS account.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="deployCloudWatch()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition">
+                            <span>🚀</span> Deploy / Update Dashboard
+                        </button>
+                        <a id="cwConsoleLink" href="https://ap-south-1.console.aws.amazon.com/cloudwatch/home?region=ap-south-1#dashboards:name=CloudSecOps-Security-Hub" target="_blank" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                            <span>🔗</span> Open AWS Console
+                        </a>
+                    </div>
+                </div>
+
+                <div id="cwStatusAlert" class="hidden mb-6 p-3 rounded-lg text-xs border"></div>
+
+                <!-- Preview Grid of CloudWatch Widgets -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/70">
+                        <div class="text-xs font-semibold text-slate-400 uppercase">Widget 1: Findings by Severity</div>
+                        <div class="text-xl font-bold text-white mt-2">Time-Series Graph</div>
+                        <p class="text-[11px] text-slate-400 mt-1">Tracks Critical, High, Medium, and Low trends in 5-minute periods.</p>
+                        <span class="inline-block mt-3 text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">Metric: CloudSecOps/*Findings</span>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/70">
+                        <div class="text-xs font-semibold text-slate-400 uppercase">Widget 2: Compliance Health</div>
+                        <div class="text-xl font-bold text-emerald-400 mt-2">Single-Value Gauge (%)</div>
+                        <p class="text-[11px] text-slate-400 mt-1">Real-time health score computed from open vulnerabilities.</p>
+                        <span class="inline-block mt-3 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Metric: CloudSecOps/ComplianceScore</span>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/70">
+                        <div class="text-xs font-semibold text-slate-400 uppercase">Widget 3: Monthly Cost Savings</div>
+                        <div class="text-xl font-bold text-purple-400 mt-2">Potential Savings ($)</div>
+                        <p class="text-[11px] text-slate-400 mt-1">Calculates idle compute and orphan storage dollar waste.</p>
+                        <span class="inline-block mt-3 text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">Metric: CloudSecOps/EstimatedCostSavings</span>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: SNS ALERTING & NOTIFICATIONS        -->
+        <!-- ========================================== -->
+        <div id="panel-sns" class="tab-panel hidden space-y-6">
+            <div class="glass-panel p-6 rounded-xl border border-surfaceborder">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>📧</span> Amazon SNS Alerting Engine
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Severity-routed alerting: Immediate notifications for CRITICAL flaws, aggregated digests for HIGH issues.
+                        </p>
+                    </div>
+                    <div>
+                        <button onclick="sendTestAlert()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-red-600/20 transition">
+                            <span>🧪</span> Send Sample Alert Email
+                        </button>
+                    </div>
+                </div>
+
+                <div id="snsAlertStatus" class="hidden mb-6 p-3 rounded-lg text-xs border"></div>
+
+                <!-- Severity Routing Diagram -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="glass-panel p-4 rounded-xl border border-red-500/30 bg-red-950/20">
+                        <div class="flex items-center gap-2 text-red-400 font-bold text-sm">
+                            <span>🚨</span> CRITICAL Severity
+                        </div>
+                        <div class="text-xs text-red-200 mt-2 font-semibold">Immediate Real-Time Alert</div>
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            Dispatched instantaneously to SNS subscribers upon discovery. Contains full vulnerability, resource ID, and direct remediation steps.
+                        </p>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-xl border border-orange-500/30 bg-orange-950/20">
+                        <div class="flex items-center gap-2 text-orange-400 font-bold text-sm">
+                            <span>⚠️</span> HIGH Severity
+                        </div>
+                        <div class="text-xs text-orange-200 mt-2 font-semibold">Aggregated Digest Summary</div>
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            Grouped by resource category (EC2, S3, RDS, IAM). Dispatched as an aggregated summary to prevent inbox fatigue.
+                        </p>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-xl border border-blue-500/30 bg-blue-950/20">
+                        <div class="flex items-center gap-2 text-blue-400 font-bold text-sm">
+                            <span>ℹ️</span> MEDIUM & LOW
+                        </div>
+                        <div class="text-xs text-blue-200 mt-2 font-semibold">Dashboard & Metric Logging</div>
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            Logged to DynamoDB, updated on CloudWatch metrics, and reflected in the weekly HTML security report.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Topic & Subscription Details -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Current Subscribers -->
+                    <div class="glass-panel p-5 rounded-xl border border-surfaceborder">
+                        <h3 class="text-sm font-semibold text-white mb-3 flex items-center justify-between">
+                            <span>Active Topic & Subscribers</span>
+                            <span id="snsSubCount" class="text-xs font-mono text-indigo-400">0 Subscribed</span>
+                        </h3>
+                        <div class="text-xs text-slate-400 mb-2">
+                            <span class="text-slate-500">Topic ARN:</span>
+                            <code id="snsTopicArn" class="font-mono text-[11px] text-slate-300 block bg-slate-950 p-2 rounded mt-1 overflow-x-auto">Loading...</code>
+                        </div>
+                        <div class="mt-4">
+                            <div class="text-xs font-semibold text-slate-300 mb-2">Verified Notification Endpoints:</div>
+                            <ul id="snsSubscribersList" class="space-y-1.5 text-xs text-slate-300 font-mono">
+                                <li class="text-slate-500">Loading subscribers...</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Subscribe Form -->
+                    <div class="glass-panel p-5 rounded-xl border border-surfaceborder">
+                        <h3 class="text-sm font-semibold text-white mb-3">Add Email Subscriber</h3>
+                        <p class="text-xs text-slate-400 mb-4">
+                            Enter an email address to receive immediate CRITICAL and digest HIGH security notifications from this AWS account.
+                        </p>
+                        <div class="space-y-3">
+                            <input type="email" id="subscribeEmailInput" placeholder="engineer@company.com" class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3.5 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
+                            <button onclick="subscribeEmail()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-semibold transition">
+                                Subscribe to Security Alerts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 4: WEEKLY REPORTS & S3                 -->
+        <!-- ========================================== -->
+        <div id="panel-reports" class="tab-panel hidden space-y-6">
+            <div class="glass-panel p-6 rounded-xl border border-surfaceborder">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>📄</span> Weekly Security Reports & S3 Archive
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Scheduled executive HTML audit reports with compliance grading, posture trends, and S3 bucket sync.
+                        </p>
+                    </div>
+                    <div>
+                        <button onclick="triggerNewReport()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition">
+                            <span>✨</span> Generate Report Now
+                        </button>
+                    </div>
+                </div>
+
+                <div id="reportStatusAlert" class="hidden mb-6 p-3 rounded-lg text-xs border"></div>
+
+                <!-- Reports Table -->
+                <div class="glass-panel rounded-xl border border-surfaceborder overflow-hidden">
+                    <table class="min-w-full text-left text-xs">
+                        <thead class="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-surfaceborder">
+                            <tr>
+                                <th class="px-4 py-3">Report Filename</th>
+                                <th class="px-4 py-3">Generated Timestamp</th>
+                                <th class="px-4 py-3">File Size</th>
+                                <th class="px-4 py-3">Storage Location</th>
+                                <th class="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportsTable" class="divide-y divide-slate-800/60 font-sans">
+                            <tr>
+                                <td colspan="5" class="text-center py-8 text-slate-500">Loading generated reports...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 5: AUTO-REMEDIATION ENGINE             -->
+        <!-- ========================================== -->
+        <div id="panel-remediation" class="tab-panel hidden space-y-6">
+            <div class="glass-panel p-6 rounded-xl border border-surfaceborder">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>🔧</span> 5 Safe Auto-Remediation Controls
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Pre-approved automated fixes designed to safely close exposure without breaking production workloads.
+                        </p>
+                    </div>
+                    <div>
+                        <button onclick="runAutoRemediateBulk()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition">
+                            <span>⚡</span> Run All 5 Auto-Fixes
+                        </button>
+                    </div>
+                </div>
+
+                <div id="remediationStatusAlert" class="hidden mb-6 p-3 rounded-lg text-xs border"></div>
+
+                <!-- 5 Safe Fix Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    
+                    <!-- Fix 1 -->
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/60 hover:border-emerald-500/40 transition">
+                        <div class="flex items-center gap-2 text-emerald-400 font-semibold text-xs mb-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> SAFE FIX #1
+                        </div>
+                        <h4 class="text-sm font-bold text-white">S3 Public Access Block Enforcement</h4>
+                        <p class="text-[11px] text-slate-400 mt-2">
+                            Enforces all 4 Amazon S3 Block Public Access configurations on buckets with public access flaws.
+                        </p>
+                        <div class="mt-3 text-[10px] font-mono text-indigo-300 bg-slate-950 p-1.5 rounded">
+                            Action: s3:PutPublicAccessBlock
+                        </div>
+                    </div>
+
+                    <!-- Fix 2 -->
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/60 hover:border-emerald-500/40 transition">
+                        <div class="flex items-center gap-2 text-emerald-400 font-semibold text-xs mb-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> SAFE FIX #2
+                        </div>
+                        <h4 class="text-sm font-bold text-white">S3 Default AES256 SSE Encryption</h4>
+                        <p class="text-[11px] text-slate-400 mt-2">
+                            Applies default server-side encryption with AWS-managed keys (SSE-AES256) on unencrypted S3 buckets.
+                        </p>
+                        <div class="mt-3 text-[10px] font-mono text-indigo-300 bg-slate-950 p-1.5 rounded">
+                            Action: s3:PutBucketEncryption
+                        </div>
+                    </div>
+
+                    <!-- Fix 3 -->
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/60 hover:border-emerald-500/40 transition">
+                        <div class="flex items-center gap-2 text-emerald-400 font-semibold text-xs mb-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> SAFE FIX #3
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Deactivate Stale IAM Access Keys</h4>
+                        <p class="text-[11px] text-slate-400 mt-2">
+                            Sets IAM access keys older than 90 days to 'Inactive' status to eliminate leaked credential exposure.
+                        </p>
+                        <div class="mt-3 text-[10px] font-mono text-indigo-300 bg-slate-950 p-1.5 rounded">
+                            Action: iam:UpdateAccessKey(Status='Inactive')
+                        </div>
+                    </div>
+
+                    <!-- Fix 4 -->
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/60 hover:border-emerald-500/40 transition">
+                        <div class="flex items-center gap-2 text-emerald-400 font-semibold text-xs mb-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> SAFE FIX #4
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Enforce Mandatory EC2 Instance Tags</h4>
+                        <p class="text-[11px] text-slate-400 mt-2">
+                            Attaches mandatory compliance tags (<code class="text-indigo-300">Environment</code>, <code class="text-indigo-300">Owner</code>) to untagged EC2 instances.
+                        </p>
+                        <div class="mt-3 text-[10px] font-mono text-indigo-300 bg-slate-950 p-1.5 rounded">
+                            Action: ec2:CreateTags
+                        </div>
+                    </div>
+
+                    <!-- Fix 5 -->
+                    <div class="glass-panel p-4 rounded-xl border border-surfaceborder bg-slate-900/60 hover:border-emerald-500/40 transition">
+                        <div class="flex items-center gap-2 text-emerald-400 font-semibold text-xs mb-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> SAFE FIX #5
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Restrict Open Security Group Ingress</h4>
+                        <p class="text-[11px] text-slate-400 mt-2">
+                            Revokes open internet access (0.0.0.0/0) on administration ports 22 (SSH) and 3389 (RDP).
+                        </p>
+                        <div class="mt-3 text-[10px] font-mono text-indigo-300 bg-slate-950 p-1.5 rounded">
+                            Action: ec2:RevokeSecurityGroupIngress
+                        </div>
+                    </div>
+
+                    <!-- Individual Triggers -->
+                    <div class="glass-panel p-4 rounded-xl border border-indigo-500/30 bg-indigo-950/20 flex flex-col justify-between">
+                        <div>
+                            <div class="text-indigo-300 font-semibold text-xs mb-1">MANUAL ENGINE RUN</div>
+                            <h4 class="text-sm font-bold text-white">Individual Detection Triggers</h4>
+                            <p class="text-[11px] text-slate-400 mt-1">Invoke specific scanning engines on demand:</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <button onclick="triggerEngine('auditor')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded text-[11px] border border-slate-700 font-medium">Auditor</button>
+                            <button onclick="triggerEngine('cost-analyzer')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded text-[11px] border border-slate-700 font-medium">Cost Analyzer</button>
+                            <button onclick="triggerEngine('risk-scorer')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded text-[11px] border border-slate-700 font-medium">Risk Scorer</button>
+                            <button onclick="triggerEngine('auto-remediate')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded text-[11px] border border-slate-700 font-medium">Remediator</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- MODAL: CONNECT AWS ACCOUNT                 -->
+    <!-- ========================================== -->
+    <div id="connectModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass-panel-glow max-w-lg w-full rounded-2xl p-6 relative border border-indigo-500/40">
+            <!-- Close Button -->
+            <button onclick="closeConnectModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-lg">
+                    🔑
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">Connect Target AWS Account</h3>
+                    <p class="text-xs text-slate-400">Authenticate your AWS environment to run scans & generate reports</p>
+                </div>
+            </div>
+
+            <!-- Modal Error Alert -->
+            <div id="modalErrorAlert" class="hidden mb-4 p-3 rounded-lg text-xs bg-red-950/60 border border-red-500/40 text-red-200"></div>
+
+            <!-- Mode Selector Tabs -->
+            <div class="flex border-b border-surfaceborder mb-4 text-xs font-semibold">
+                <button onclick="setConnectMode('profile')" id="modalTabProfile" class="flex-1 pb-2 border-b-2 border-indigo-500 text-white">
+                    Local AWS Profile (CLI)
+                </button>
+                <button onclick="setConnectMode('credentials')" id="modalTabCreds" class="flex-1 pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                    IAM Access Keys
+                </button>
+            </div>
+
+            <!-- Mode 1: AWS Profile Form -->
+            <div id="profileForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Select or Enter AWS Profile Name</label>
+                    <select id="profileSelect" class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500 mb-2">
+                        <option value="cloudsecops">cloudsecops (Recommended)</option>
+                        <option value="default">default</option>
+                    </select>
+                    <input type="text" id="customProfileInput" placeholder="Or custom profile name..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">AWS Region</label>
+                    <input type="text" id="profileRegionInput" value="ap-south-1" class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+            </div>
+
+            <!-- Mode 2: IAM Credentials Form -->
+            <div id="credentialsForm" class="hidden space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">AWS Access Key ID</label>
+                    <input type="text" id="accessKeyInput" placeholder="AKIA..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">AWS Secret Access Key</label>
+                    <input type="password" id="secretKeyInput" placeholder="Secret access key..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Session Token (Optional)</label>
+                    <input type="password" id="sessionTokenInput" placeholder="For temporary credentials" class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs font-mono focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">AWS Region</label>
+                    <input type="text" id="credsRegionInput" value="ap-south-1" class="w-full bg-slate-950 border border-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+            </div>
+
+            <!-- Auto Sync Checkbox -->
+            <div class="mt-4 flex items-center gap-2 text-xs text-slate-300">
+                <input type="checkbox" id="autoSyncCheckbox" checked class="rounded border-slate-700 text-indigo-600 focus:ring-0">
+                <label for="autoSyncCheckbox">Automatically run full security audit scan after authentication</label>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <button onclick="closeConnectModal()" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                <button id="submitConnectBtn" onclick="submitConnectAccount()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                    <span>⚡</span> Connect & Sync Account
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL: REPORT PREVIEW                      -->
+    <!-- ========================================== -->
+    <div id="reportPreviewModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+        <div class="glass-panel w-full max-w-5xl h-[85vh] rounded-2xl flex flex-col overflow-hidden border border-indigo-500/40">
+            <div class="px-6 py-4 border-b border-surfaceborder flex items-center justify-between bg-slate-900">
+                <div class="flex items-center gap-2">
+                    <span class="text-base">📄</span>
+                    <h3 id="previewModalTitle" class="text-sm font-bold text-white">Executive Report Preview</h3>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a id="previewDownloadLink" href="#" download class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded font-semibold transition">
+                        ⬇️ Download HTML
+                    </a>
+                    <button onclick="closeReportPreview()" class="text-slate-400 hover:text-white text-lg">✕</button>
+                </div>
+            </div>
+            <iframe id="reportPreviewIframe" class="w-full flex-1 bg-slate-950 border-none"></iframe>
+        </div>
+    </div>
+
+    <!-- Application Logic Script -->
+    <script>
+        let currentFindings = [];
+        let severityChart = null;
+        let statusChart = null;
+        let currentConnectMode = 'profile';
+
+        // --- Tab Management ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            const activePanel = document.getElementById(`panel-${tabId}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            if (activePanel) activePanel.classList.remove('hidden');
+
+            if (tabId === 'cloudwatch') loadCloudWatchPreview();
+            if (tabId === 'sns') loadSNSStatus();
+            if (tabId === 'reports') loadReportsList();
+        }
+
+        // --- Account Connection Management ---
+        async function checkAccountInfo() {
+            try {
+                const res = await fetch('/api/account-info');
+                const data = await res.json();
+                
+                const badge = document.getElementById('accountStatusBadge');
+                const text = document.getElementById('accountStatusText');
+                const chip = document.getElementById('accountDetailsChip');
+                const btnText = document.getElementById('connectBtnText');
+
+                if (data.success && data.is_connected) {
+                    badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border bg-emerald-950/40 border-emerald-500/40 text-emerald-300";
+                    text.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Connected (${data.connection_mode.toUpperCase()})`;
+                    
+                    document.getElementById('headerAccountId').textContent = data.account_id || 'Connected';
+                    document.getElementById('headerRegion').textContent = data.region || 'ap-south-1';
+                    chip.classList.remove('hidden');
+                    chip.classList.add('flex');
+                    btnText.textContent = "Switch Account";
+
+                    if (data.available_profiles && data.available_profiles.length > 0) {
+                        const sel = document.getElementById('profileSelect');
+                        sel.innerHTML = data.available_profiles.map(p => 
+                            `<option value="${p}" ${p === data.profile_name ? 'selected' : ''}>${p}</option>`
+                        ).join('');
+                    }
+                } else {
+                    badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border bg-red-950/40 border-red-500/40 text-red-300";
+                    text.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span> Not Connected`;
+                    chip.classList.add('hidden');
+                    chip.classList.remove('flex');
+                    btnText.textContent = "Connect Account";
+                }
+            } catch (err) {
+                console.error("Error checking account info:", err);
+            }
+        }
+
+        function openConnectModal() {
+            document.getElementById('modalErrorAlert').classList.add('hidden');
+            document.getElementById('connectModal').classList.remove('hidden');
+        }
+
+        function closeConnectModal() {
+            document.getElementById('connectModal').classList.add('hidden');
+        }
+
+        function setConnectMode(mode) {
+            currentConnectMode = mode;
+            if (mode === 'profile') {
+                document.getElementById('modalTabProfile').className = "flex-1 pb-2 border-b-2 border-indigo-500 text-white";
+                document.getElementById('modalTabCreds').className = "flex-1 pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+                document.getElementById('profileForm').classList.remove('hidden');
+                document.getElementById('credentialsForm').classList.add('hidden');
+            } else {
+                document.getElementById('modalTabProfile').className = "flex-1 pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+                document.getElementById('modalTabCreds').className = "flex-1 pb-2 border-b-2 border-indigo-500 text-white";
+                document.getElementById('profileForm').classList.add('hidden');
+                document.getElementById('credentialsForm').classList.remove('hidden');
+            }
+        }
+
+        async function submitConnectAccount() {
+            const errDiv = document.getElementById('modalErrorAlert');
+            const submitBtn = document.getElementById('submitConnectBtn');
+            errDiv.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span>⏳</span> Connecting...`;
+
+            const autoSync = document.getElementById('autoSyncCheckbox').checked;
+            let payload = { mode: currentConnectMode, auto_sync: autoSync };
+
+            if (currentConnectMode === 'profile') {
+                const custom = document.getElementById('customProfileInput').value.trim();
+                payload.profile_name = custom || document.getElementById('profileSelect').value;
+                payload.region = document.getElementById('profileRegionInput').value.trim();
+            } else {
+                payload.access_key_id = document.getElementById('accessKeyInput').value.trim();
+                payload.secret_access_key = document.getElementById('secretKeyInput').value.trim();
+                payload.session_token = document.getElementById('sessionTokenInput').value.trim() || undefined;
+                payload.region = document.getElementById('credsRegionInput').value.trim();
+            }
+
+            try {
+                const res = await fetch('/api/connect-aws', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    closeConnectModal();
+                    await checkAccountInfo();
+                    await refreshData();
+                } else {
+                    errDiv.textContent = `❌ ${data.error || 'Connection failed'}`;
+                    errDiv.classList.remove('hidden');
+                }
+            } catch (e) {
+                errDiv.textContent = `❌ Connection error: ${e.message}`;
+                errDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>⚡</span> Connect & Sync Account`;
+            }
+        }
+
+        // --- Live Account Sync Execution ---
+        async function runSyncPipeline() {
+            try {
+                const checkRes = await fetch('/api/account-info');
+                const checkData = await checkRes.json();
+                if (!checkData.is_connected) {
+                    openConnectModal();
+                    return;
+                }
+            } catch (e) {
+                console.error("Error checking account info:", e);
+            }
+
+            const banner = document.getElementById('syncProgressBanner');
+            const syncBtn = document.getElementById('syncAccountBtn');
+            const syncIcon = document.getElementById('syncIcon');
+            const syncText = document.getElementById('syncText');
+
+            banner.classList.remove('hidden');
+            syncBtn.disabled = true;
+            syncIcon.classList.add('animate-spin');
+            syncText.textContent = "Syncing...";
+
+            try {
+                const res = await fetch('/api/sync-account', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    await refreshData();
+                } else {
+                    alert(`Sync Notice: ${data.error}`);
+                }
+            } catch (e) {
+                alert(`Sync Error: ${e.message}`);
+            } finally {
+                banner.classList.add('hidden');
+                syncBtn.disabled = false;
+                syncIcon.classList.remove('animate-spin');
+                syncText.textContent = "Sync Account";
+            }
+        }
+
+        // --- Summary & KPI Stats ---
+        async function loadSummary() {
+            try {
+                const res = await fetch('/api/summary');
+                const data = await res.json();
+                if (data.success) {
+                    const s = data.summary;
+                    document.getElementById('totalFindings').textContent = s.total;
+                    document.getElementById('criticalFindings').textContent = s.critical;
+                    document.getElementById('highFindings').textContent = s.high;
+                    document.getElementById('resolvedFindings').textContent = s.resolved;
+                    document.getElementById('openFindingsSub').textContent = `${s.open} active flaws`;
+                    document.getElementById('costSavingsVal').textContent = `$${s.savings.toFixed(2)}`;
+                    
+                    // Compliance score & grade
+                    const score = s.compliance_score || 0;
+                    document.getElementById('complianceScoreVal').textContent = `${score}%`;
+                    document.getElementById('complianceScoreBar').style.width = `${score}%`;
+
+                    const gradeBadge = document.getElementById('gradeBadge');
+                    if (score >= 90) {
+                        gradeBadge.textContent = 'Grade A';
+                        gradeBadge.className = 'text-xs px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                    } else if (score >= 75) {
+                        gradeBadge.textContent = 'Grade B';
+                        gradeBadge.className = 'text-xs px-2 py-0.5 rounded font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30';
+                    } else if (score >= 60) {
+                        gradeBadge.textContent = 'Grade C';
+                        gradeBadge.className = 'text-xs px-2 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+                    } else {
+                        gradeBadge.textContent = 'Grade F';
+                        gradeBadge.className = 'text-xs px-2 py-0.5 rounded font-bold bg-red-500/20 text-red-400 border border-red-500/30';
+                    }
+
+                    // Update Charts
+                    if (severityChart) {
+                        severityChart.data.datasets[0].data = [s.critical, s.high, s.medium, s.low];
+                        severityChart.update();
+                    }
+                    if (statusChart) {
+                        statusChart.data.datasets[0].data = [s.open, s.resolved];
+                        statusChart.update();
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading summary:", e);
+            }
+        }
+
+        let currentFindingsTab = 'OPEN';
+        
+        function switchFindingsTab(tab) {
+            currentFindingsTab = tab;
+            if (tab === 'OPEN') {
+                document.getElementById('openTabBtn').className = "text-base font-semibold text-white border-b-2 border-indigo-500 pb-1 outline-none";
+                document.getElementById('resolvedTabBtn').className = "text-base font-semibold text-slate-400 hover:text-white border-b-2 border-transparent pb-1 outline-none";
+            } else {
+                document.getElementById('resolvedTabBtn').className = "text-base font-semibold text-white border-b-2 border-indigo-500 pb-1 outline-none";
+                document.getElementById('openTabBtn').className = "text-base font-semibold text-slate-400 hover:text-white border-b-2 border-transparent pb-1 outline-none";
+            }
+            filterFindings();
+        }
+
+        // --- Findings Table & Filters ---
+        async function loadFindings() {
+            try {
+                const res = await fetch('/api/findings');
+                const data = await res.json();
+                if (data.success) {
+                    // Deduplicate findings so we don't show the same issue on same resource multiple times
+                    const map = new Map();
+                    for (const f of (data.findings || [])) {
+                        const key = f.resource_id + '|' + f.issue;
+                        if (!map.has(key)) {
+                            map.set(key, f);
+                        } else {
+                            // If we already have this issue, and the current one is RESOLVED, override it.
+                            if (f.status === 'RESOLVED') {
+                                map.set(key, f);
+                            }
+                        }
+                    }
+                    currentFindings = Array.from(map.values());
+                    filterFindings();
+                }
+            } catch (e) {
+                console.error("Error loading findings:", e);
+            }
+        }
+
+        function filterFindings() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const sevFilter = document.getElementById('severityFilter').value;
+            const statusFilter = currentFindingsTab;
+
+            const filtered = currentFindings.filter(f => {
+                const matchesQuery = !query || 
+                    (f.resource_id && f.resource_id.toLowerCase().includes(query)) ||
+                    (f.resource_type && f.resource_type.toLowerCase().includes(query)) ||
+                    (f.issue && f.issue.toLowerCase().includes(query));
+
+                const matchesSev = sevFilter === 'ALL' || (f.severity && f.severity.toUpperCase() === sevFilter);
+                const matchesStatus = statusFilter === 'ALL' || (f.status && f.status.toUpperCase() === statusFilter);
+
+                return matchesQuery && matchesSev && matchesStatus;
+            });
+
+            document.getElementById('findingsCountBadge').textContent = `${filtered.length} issues`;
+            renderFindingsTable(filtered);
+        }
+
+        function renderFindingsTable(findings) {
+            const tbody = document.getElementById('findingsTable');
+            if (!findings || findings.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-slate-500">🎉 No matching security findings detected!</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = findings.map(f => {
+                const isResolved = f.status === 'RESOLVED';
+                const sev = (f.severity || 'LOW').toUpperCase();
+                
+                let sevBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">LOW</span>`;
+                if (sev === 'CRITICAL') sevBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse">CRITICAL</span>`;
+                else if (sev === 'HIGH') sevBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">HIGH</span>`;
+                else if (sev === 'MEDIUM') sevBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">MEDIUM</span>`;
+
+                const statusBadge = isResolved
+                    ? `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">RESOLVED</span>`
+                    : `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">OPEN</span>`;
+
+                const rowClass = isResolved ? 'status-resolved-row' : `severity-${sev.toLowerCase()}`;
+
+                // Action button: Fix Now for open items
+                let actionBtn = `<span class="text-slate-500 text-[11px]">—</span>`;
+                if (!isResolved) {
+                    actionBtn = `
+                        <button onclick="remediateFinding('${f.finding_id}', this)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold px-2.5 py-1 rounded transition shadow-sm">
+                            ⚡ Fix Now
+                        </button>
+                    `;
+                }
+
+                return `
+                    <tr class="${rowClass} hover:bg-slate-900/40 transition">
+                        <td class="px-4 py-3">${sevBadge}</td>
+                        <td class="px-4 py-3 font-mono text-[11px] text-slate-300 max-w-[200px] truncate" title="${f.resource_id}">${f.resource_id}</td>
+                        <td class="px-4 py-3 text-slate-400">${f.resource_type || 'AWS::Resource'}</td>
+                        <td class="px-4 py-3 text-slate-200 font-medium">${f.issue}</td>
+                        <td class="px-4 py-3 font-mono font-bold ${f.risk_score >= 50 ? 'text-red-400' : 'text-slate-300'}">${f.risk_score || 'N/A'}</td>
+                        <td class="px-4 py-3 text-emerald-400 font-mono">${f.cost_impact || '—'}</td>
+                        <td class="px-4 py-3">${statusBadge}</td>
+                        <td class="px-4 py-3 text-right">${actionBtn}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- Single Finding Remediation ---
+        async function remediateFinding(findingId, btnElement) {
+            btnElement.disabled = true;
+            btnElement.innerHTML = `<span>⏳</span> Fixing...`;
+            try {
+                const res = await fetch(`/api/remediate-finding/${findingId}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    btnElement.className = "bg-emerald-600 text-white text-[11px] font-semibold px-2.5 py-1 rounded";
+                    btnElement.textContent = "✅ Fixed";
+                    setTimeout(refreshData, 1200);
+                } else {
+                    alert(`Remediation notice: ${data.error}`);
+                    btnElement.disabled = false;
+                    btnElement.textContent = "⚡ Fix Now";
+                }
+            } catch (e) {
+                alert(`Error remediating: ${e.message}`);
+                btnElement.disabled = false;
+                btnElement.textContent = "⚡ Fix Now";
+            }
+        }
+
+        // --- Bulk Auto-Remediation ---
+        async function runAutoRemediateBulk() {
+            const alertDiv = document.getElementById('remediationStatusAlert');
+            alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-indigo-950/60 border-indigo-500/40 text-indigo-200 block";
+            alertDiv.textContent = "⏳ Running Auto-Remediation engine across all eligible open findings...";
+
+            try {
+                const res = await fetch('/api/trigger-auto-remediate', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-emerald-950/60 border-emerald-500/40 text-emerald-200 block";
+                    alertDiv.textContent = `✅ ${data.message}`;
+                    setTimeout(refreshData, 1500);
+                } else {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                    alertDiv.textContent = `❌ ${data.error}`;
+                }
+            } catch (e) {
+                alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                alertDiv.textContent = `❌ Error: ${e.message}`;
+            }
+        }
+
+        // --- CloudWatch Dashboard ---
+        async function loadCloudWatchPreview() {
+            try {
+                const res = await fetch('/api/cloudwatch/preview');
+                const data = await res.json();
+                if (data.success) {
+                    if (data.console_url) {
+                        document.getElementById('cwConsoleLink').href = data.console_url;
+                    }
+                }
+            } catch (e) {
+                console.error("Error previewing CloudWatch:", e);
+            }
+        }
+
+        async function deployCloudWatch() {
+            const alertDiv = document.getElementById('cwStatusAlert');
+            alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-indigo-950/60 border-indigo-500/40 text-indigo-200 block";
+            alertDiv.textContent = "⏳ Deploying CloudWatch Dashboard to AWS...";
+
+            try {
+                const res = await fetch('/api/cloudwatch/deploy', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-emerald-950/60 border-emerald-500/40 text-emerald-200 block";
+                    alertDiv.innerHTML = `✅ Successfully deployed dashboard <strong>${data.dashboard_name}</strong> to region <code>${data.region}</code>!`;
+                } else {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                    alertDiv.textContent = `❌ ${data.error}`;
+                }
+            } catch (e) {
+                alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                alertDiv.textContent = `❌ Error deploying CloudWatch: ${e.message}`;
+            }
+        }
+
+        // --- SNS Alerts ---
+        async function loadSNSStatus() {
+            try {
+                const res = await fetch('/api/sns/status');
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('snsTopicArn').textContent = data.topic_arn || 'No topic configured';
+                    document.getElementById('snsSubCount').textContent = `${data.subscriber_count} Subscribed`;
+
+                    const subList = document.getElementById('snsSubscribersList');
+                    if (data.subscriptions && data.subscriptions.length > 0) {
+                        subList.innerHTML = data.subscriptions.map(s => `
+                            <li class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                <span>${s.endpoint}</span>
+                                <span class="text-slate-500 text-[10px]">(${s.protocol})</span>
+                            </li>
+                        `).join('');
+                    } else {
+                        subList.innerHTML = `<li class="text-slate-500">No active subscribers found on this topic.</li>`;
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading SNS status:", e);
+            }
+        }
+
+        async function sendTestAlert() {
+            const alertDiv = document.getElementById('snsAlertStatus');
+            alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-indigo-950/60 border-indigo-500/40 text-indigo-200 block";
+            alertDiv.textContent = "⏳ Dispatching sample test alert email via SNS...";
+
+            try {
+                const res = await fetch('/api/sns/test', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-emerald-950/60 border-emerald-500/40 text-emerald-200 block";
+                    alertDiv.textContent = `✅ ${data.message}`;
+                } else {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                    alertDiv.textContent = `❌ ${data.error}`;
+                }
+            } catch (e) {
+                alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                alertDiv.textContent = `❌ Error: ${e.message}`;
+            }
+        }
+
+        async function subscribeEmail() {
+            const email = document.getElementById('subscribeEmailInput').value.trim();
+            if (!email) return alert("Please enter a valid email address.");
+
+            const alertDiv = document.getElementById('snsAlertStatus');
+            alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-indigo-950/60 border-indigo-500/40 text-indigo-200 block";
+            alertDiv.textContent = `⏳ Subscribing ${email}...`;
+
+            try {
+                const res = await fetch('/api/sns/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-emerald-950/60 border-emerald-500/40 text-emerald-200 block";
+                    alertDiv.textContent = `✅ ${data.message}`;
+                    document.getElementById('subscribeEmailInput').value = '';
+                    loadSNSStatus();
+                } else {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                    alertDiv.textContent = `❌ ${data.error}`;
+                }
+            } catch (e) {
+                alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                alertDiv.textContent = `❌ Error: ${e.message}`;
+            }
+        }
+
+        // --- Reports Engine ---
+        async function loadReportsList() {
+            try {
+                const res = await fetch('/api/reports');
+                const data = await res.json();
+                const tbody = document.getElementById('reportsTable');
+                if (data.success && data.reports && data.reports.length > 0) {
+                    tbody.innerHTML = data.reports.map(r => `
+                        <tr class="hover:bg-slate-900/40 transition">
+                            <td class="px-4 py-3 font-mono text-[11px] text-slate-200">${r.filename}</td>
+                            <td class="px-4 py-3 text-slate-400">${r.created_at}</td>
+                            <td class="px-4 py-3 text-slate-400 font-mono">${(r.size_bytes / 1024).toFixed(1)} KB</td>
+                            <td class="px-4 py-3 text-indigo-300 font-mono text-[11px]">S3 & Local Cache</td>
+                            <td class="px-4 py-3 text-right space-x-2">
+                                <button onclick="openReportPreview('${r.filename}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold">
+                                    👁️ Preview
+                                </button>
+                                <a href="${r.download_url}" download class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded text-[11px] font-semibold inline-block">
+                                    ⬇️ Download
+                                </a>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-500">No reports generated yet. Click 'Generate Report Now'.</td></tr>`;
+                }
+            } catch (e) {
+                console.error("Error loading reports:", e);
+            }
+        }
+
+        async function triggerNewReport() {
+            const alertDiv = document.getElementById('reportStatusAlert');
+            alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-indigo-950/60 border-indigo-500/40 text-indigo-200 block";
+            alertDiv.textContent = "⏳ Generating new executive security audit report...";
+
+            try {
+                const res = await fetch('/api/trigger-report', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-emerald-950/60 border-emerald-500/40 text-emerald-200 block";
+                    alertDiv.textContent = `✅ Report successfully generated: ${data.filename} (${data.total_findings} findings evaluated, Grade: ${data.grade})`;
+                    loadReportsList();
+                } else {
+                    alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                    alertDiv.textContent = `❌ ${data.error}`;
+                }
+            } catch (e) {
+                alertDiv.className = "mb-6 p-3 rounded-lg text-xs border bg-red-950/60 border-red-500/40 text-red-200 block";
+                alertDiv.textContent = `❌ Error generating report: ${e.message}`;
+            }
+        }
+
+        function openReportPreview(filename) {
+            document.getElementById('previewModalTitle').textContent = `Preview: ${filename}`;
+            document.getElementById('previewDownloadLink').href = `/api/reports/download/${filename}`;
+            document.getElementById('reportPreviewIframe').src = `/api/reports/preview/${filename}`;
+            document.getElementById('reportPreviewModal').classList.remove('hidden');
+        }
+
+        function closeReportPreview() {
+            document.getElementById('reportPreviewModal').classList.add('hidden');
+            document.getElementById('reportPreviewIframe').src = '';
+        }
+
+        // --- Individual Lambda Trigger Helper ---
+        async function triggerEngine(name) {
+            try {
+                const res = await fetch(`/api/trigger-${name}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✅ ${data.message}`);
+                    refreshData();
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            } catch (e) {
+                alert(`❌ Error triggering ${name}: ${e.message}`);
+            }
+        }
+
+        // --- Refresh All Data ---
+        async function refreshData() {
+            await loadSummary();
+            await loadFindings();
+        }
+
+        // --- Charts Initialization ---
+        function initCharts() {
+            // Severity Bar Chart
+            const sevCtx = document.getElementById('severityChart').getContext('2d');
+            severityChart = new Chart(sevCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Critical', 'High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6'],
+                        borderRadius: 6,
+                        barPercentage: 0.55
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { color: '#94a3b8', stepSize: 1 }
+                        }
+                    }
+                }
+            });
+
+            // Posture Status Doughnut Chart
+            const statCtx = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(statCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Open Issues', 'Auto-Remediated'],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: ['#ef4444', '#10b981'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            initCharts();
+            await checkAccountInfo();
+            await refreshData();
+        });
+    </script>
+</body>
+</html>

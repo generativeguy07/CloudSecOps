@@ -1,0 +1,11 @@
+{
+  "finding_id": {"S": "test-uuid-0001"},
+  "timestamp": {"S": "2026-10-03T11:42:00Z"},
+  "severity": {"S": "HIGH"},
+  "source": {"S": "IaCScanner"},
+  "resource_id": {"S": "InsecureBucket"},
+  "resource_type": {"S": "AWS::S3::Bucket"},
+  "issue": {"S": "S3 Bucket lacks server-side encryption configuration"},
+  "status": {"S": "OPEN"},
+  "remediation_status": {"S": "PENDING"}
+}

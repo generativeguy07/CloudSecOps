@@ -1,0 +1,10 @@
+[
+  {
+    "IndexName": "SeverityIndex",
+    "KeySchema": [
+      {"AttributeName": "severity", "KeyType": "HASH"},
+      {"AttributeName": "timestamp", "KeyType": "RANGE"}
+    ],
+    "Projection": {"ProjectionType": "ALL"}
+  }
+]

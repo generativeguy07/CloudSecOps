@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "resource_id": "test-bucket",
+      "resource_type": "AWS::S3::Bucket",
+      "issue": "S3 Bucket does not block public access",
+      "severity": "CRITICAL",
+      "risk_score": 60
+    },
+    {
+      "resource_id": "test-instance",
+      "resource_type": "AWS::EC2::Instance",
+      "issue": "EC2 Instance is publicly accessible",
+      "severity": "HIGH",
+      "risk_score": 45
+    }
+  ]
+}
