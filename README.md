@@ -1,9 +1,9 @@
 # 🛡️ CloudSecOps - Enterprise Cloud Security, Audit & Auto-Remediation Platform
 
-[![CI/CD Pipeline](https://github.com/sharanaprabhuty/CloudSecOps/actions/workflows/deploy.yml/badge.svg)](https://github.com/sharanaprabhuty/CloudSecOps/actions)
+
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![AWS Serverless](https://img.shields.io/badge/AWS-Serverless-orange.svg)](https://aws.amazon.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 
 An end-to-end, full-stack **Cloud Security Operations & Compliance Platform** built on AWS. It enables cloud engineers and security teams to connect their AWS accounts, continuously scan infrastructure across **EC2, S3, RDS, IAM, and VPC Security Groups**, calculate risk scores, generate CloudWatch metric dashboards, dispatch severity-routed SNS alerts, produce executive HTML audit reports, and safely auto-remediate misconfigurations with 1 click.
 
